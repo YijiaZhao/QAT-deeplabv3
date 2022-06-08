@@ -1,92 +1,230 @@
-# qat-deeplabv3
+# DeepLabv3Plus-Pytorch
+
+DeepLabv3, DeepLabv3+ with pretrained models for Pascal VOC & Cityscapes.
+
+## Quick Start 
+
+### 1. Available Architectures
+Specify the model architecture with '--model ARCH_NAME' and set the output stride using '--output_stride OUTPUT_STRIDE'.
+
+| DeepLabV3    |  DeepLabV3+        |
+| :---: | :---:     |
+|deeplabv3_resnet50|deeplabv3plus_resnet50|
+|deeplabv3_resnet101|deeplabv3plus_resnet101|
+|deeplabv3_mobilenet|deeplabv3plus_mobilenet ||
+|deeplabv3_hrnetv2_48 | deeplabv3plus_hrnetv2_48 |
+|deeplabv3_hrnetv2_32 | deeplabv3plus_hrnetv2_32 |
+
+All pretrained models: [Dropbox](https://www.dropbox.com/sh/w3z9z8lqpi8b2w7/AAB0vkl4F5vy6HdIhmRCTKHSa?dl=0), [Tencent Weiyun](https://share.weiyun.com/qqx78Pv5)
+
+Note: The HRNet backbone was contributed by @timothylimyl. A pre-trained backbone is available at [google drive](https://drive.google.com/file/d/1NxCK7Zgn5PmeS7W1jYLt5J9E0RRZ2oyF/view?usp=sharing).
+
+### 2. Load the pretrained model:
+```python
+model.load_state_dict( torch.load( CKPT_PATH )['model_state']  )
+```
+### 3. Visualize segmentation outputs:
+```python
+outputs = model(images)
+preds = outputs.max(1)[1].detach().cpu().numpy()
+colorized_preds = val_dst.decode_target(preds).astype('uint8') # To RGB images, (N, H, W, 3), ranged 0~255, numpy array
+# Do whatever you like here with the colorized segmentation maps
+colorized_preds = Image.fromarray(colorized_preds[0]) # to PIL Image
+```
+
+### 4. Atrous Separable Convolution
+
+**Note**: pre-trained models in this repo **do not** use Seperable Conv.
+
+Atrous Separable Convolution is supported in this repo. We provide a simple tool ``network.convert_to_separable_conv`` to convert ``nn.Conv2d`` to ``AtrousSeparableConvolution``. **Please run main.py with '--separable_conv' if it is required**. See 'main.py' and 'network/_deeplab.py' for more details. 
+
+### 5. Prediction
+Single image:
+```bash
+python predict.py --input datasets/data/cityscapes/leftImg8bit/train/bremen/bremen_000000_000019_leftImg8bit.png  --dataset cityscapes --model deeplabv3plus_mobilenet --ckpt checkpoints/best_deeplabv3plus_mobilenet_cityscapes_os16.pth --save_val_results_to test_results
+```
+
+Image folder:
+```bash
+python predict.py --input datasets/data/cityscapes/leftImg8bit/train/bremen  --dataset cityscapes --model deeplabv3plus_mobilenet --ckpt checkpoints/best_deeplabv3plus_mobilenet_cityscapes_os16.pth --save_val_results_to test_results
+```
+
+## Results
+
+### 1. Performance on Pascal VOC2012 Aug (21 classes, 513 x 513)
+
+Training: 513x513 random crop  
+validation: 513x513 center crop
+
+|  Model          | Batch Size  | FLOPs  | train/val OS   |  mIoU        | Dropbox  | Tencent Weiyun  | 
+| :--------        | :-------------: | :----:   | :-----------: | :--------: | :--------: | :----:   |
+| DeepLabV3-MobileNet       | 16      |  6.0G      |   16/16  |  0.701     |    [Download](https://www.dropbox.com/s/uhksxwfcim3nkpo/best_deeplabv3_mobilenet_voc_os16.pth?dl=0)       | [Download](https://share.weiyun.com/A4ubD1DD) |
+| DeepLabV3-ResNet50         | 16      |  51.4G     |  16/16   |  0.769     |    [Download](https://www.dropbox.com/s/3eag5ojccwiexkq/best_deeplabv3_resnet50_voc_os16.pth?dl=0) | [Download](https://share.weiyun.com/33eLjnVL) |
+| DeepLabV3-ResNet101         | 16      |  72.1G     |  16/16   |  0.773     |    [Download](https://www.dropbox.com/s/vtenndnsrnh4068/best_deeplabv3_resnet101_voc_os16.pth?dl=0)       | [Download](https://share.weiyun.com/iCkzATAw)  |
+| DeepLabV3Plus-MobileNet   | 16      |  17.0G      |  16/16   |  0.711    |    [Download](https://www.dropbox.com/s/0idrhwz6opaj7q4/best_deeplabv3plus_mobilenet_voc_os16.pth?dl=0)   | [Download](https://share.weiyun.com/djX6MDwM) |
+| DeepLabV3Plus-ResNet50    | 16      |   62.7G     |  16/16   |  0.772     |    [Download](https://www.dropbox.com/s/dgxyd3jkyz24voa/best_deeplabv3plus_resnet50_voc_os16.pth?dl=0)   | [Download](https://share.weiyun.com/uTM4i2jG) |
+| DeepLabV3Plus-ResNet101     | 16      |  83.4G     |  16/16   |  0.783     |    [Download](https://www.dropbox.com/s/bm3hxe7wmakaqc5/best_deeplabv3plus_resnet101_voc_os16.pth?dl=0)   | [Download](https://share.weiyun.com/UNPZr3dk) |
 
 
+### 2. Performance on Cityscapes (19 classes, 1024 x 2048)
 
-## Getting started
+Training: 768x768 random crop  
+validation: 1024x2048
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+|  Model          | Batch Size  | FLOPs  | train/val OS   |  mIoU        | Dropbox  |  Tencent Weiyun  |
+| :--------        | :-------------: | :----:   | :-----------: | :--------: | :--------: |  :----:   |
+| DeepLabV3Plus-MobileNet   | 16      |  135G      |  16/16   |  0.721  |    [Download](https://www.dropbox.com/s/753ojyvsh3vdjol/best_deeplabv3plus_mobilenet_cityscapes_os16.pth?dl=0) | [Download](https://share.weiyun.com/aSKjdpbL) 
+| DeepLabV3Plus-ResNet101   | 16      |  N/A      |  16/16   |  0.762  |    [Download](https://drive.google.com/file/d/1t7TC8mxQaFECt4jutdq_NMnWxdm6B-Nb/view?usp=sharing) | [Comming Soon]()
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
 
-## Add your files
+#### Segmentation Results on Pascal VOC2012 (DeepLabv3Plus-MobileNet)
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+<div>
+<img src="samples/1_image.png"   width="20%">
+<img src="samples/1_target.png"  width="20%">
+<img src="samples/1_pred.png"    width="20%">
+<img src="samples/1_overlay.png" width="20%">
+</div>
+
+<div>
+<img src="samples/23_image.png"   width="20%">
+<img src="samples/23_target.png"  width="20%">
+<img src="samples/23_pred.png"    width="20%">
+<img src="samples/23_overlay.png" width="20%">
+</div>
+
+<div>
+<img src="samples/114_image.png"   width="20%">
+<img src="samples/114_target.png"  width="20%">
+<img src="samples/114_pred.png"    width="20%">
+<img src="samples/114_overlay.png" width="20%">
+</div>
+
+#### Segmentation Results on Cityscapes (DeepLabv3Plus-MobileNet)
+
+<div>
+<img src="samples/city_1_target.png"   width="45%">
+<img src="samples/city_1_overlay.png"  width="45%">
+</div>
+
+<div>
+<img src="samples/city_6_target.png"   width="45%">
+<img src="samples/city_6_overlay.png"  width="45%">
+</div>
+
+
+#### Visualization of training
+
+![trainvis](samples/visdom-screenshoot.png)
+
+
+## Pascal VOC
+
+### 1. Requirements
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Prepare Datasets
+
+#### 2.1 Standard Pascal VOC
+You can run train.py with "--download" option to download and extract pascal voc dataset. The defaut path is './datasets/data':
 
 ```
-cd existing_repo
-git remote add origin https://gitlab-master.nvidia.com/kimiz/qat-deeplabv3.git
-git branch -M main
-git push -uf origin main
+/datasets
+    /data
+        /VOCdevkit 
+            /VOC2012 
+                /SegmentationClass
+                /JPEGImages
+                ...
+            ...
+        /VOCtrainval_11-May-2012.tar
+        ...
 ```
 
-## Integrate with your tools
+#### 2.2  Pascal VOC trainaug (Recommended!!)
 
-- [ ] [Set up project integrations](https://gitlab-master.nvidia.com/kimiz/qat-deeplabv3/-/settings/integrations)
+See chapter 4 of [2]
 
-## Collaborate with your team
+        The original dataset contains 1464 (train), 1449 (val), and 1456 (test) pixel-level annotated images. We augment the dataset by the extra annotations provided by [76], resulting in 10582 (trainaug) training images. The performance is measured in terms of pixel intersection-over-union averaged across the 21 classes (mIOU).
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+*./datasets/data/train_aug.txt* includes the file names of 10582 trainaug images (val images are excluded). Please to download their labels from [Dropbox](https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=0) or [Tencent Weiyun](https://share.weiyun.com/5NmJ6Rk). Those labels come from [DrSleep's repo](https://github.com/DrSleep/tensorflow-deeplab-resnet).
 
-## Test and Deploy
+Extract trainaug labels (SegmentationClassAug) to the VOC2012 directory.
 
-Use the built-in continuous integration in GitLab.
+```
+/datasets
+    /data
+        /VOCdevkit  
+            /VOC2012
+                /SegmentationClass
+                /SegmentationClassAug  # <= the trainaug labels
+                /JPEGImages
+                ...
+            ...
+        /VOCtrainval_11-May-2012.tar
+        ...
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 3. Training on Pascal VOC2012 Aug
 
-***
+#### 3.1 Visualize training (Optional)
 
-# Editing this README
+Start visdom sever for visualization. Please remove '--enable_vis' if visualization is not needed. 
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+# Run visdom server on port 28333
+visdom -port 28333
+```
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+#### 3.2 Training with OS=16
 
-## Name
-Choose a self-explaining name for your project.
+Run main.py with *"--year 2012_aug"* to train your model on Pascal VOC2012 Aug. You can also parallel your training on 4 GPUs with '--gpu_id 0,1,2,3'
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+**Note: There is no SyncBN in this repo, so training with *multple GPUs and small batch size* may degrades the performance. See [PyTorch-Encoding](https://hangzhang.org/PyTorch-Encoding/tutorials/syncbn.html) for more details about SyncBN**
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```bash
+python main.py --model deeplabv3plus_mobilenet --enable_vis --vis_port 28333 --gpu_id 0 --year 2012_aug --crop_val --lr 0.01 --crop_size 513 --batch_size 16 --output_stride 16
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+#### 3.3 Continue training
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Run main.py with '--continue_training' to restore the state_dict of optimizer and scheduler from YOUR_CKPT.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+python main.py ... --ckpt YOUR_CKPT --continue_training
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+#### 3.4. Testing
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Results will be saved at ./results.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+python main.py --model deeplabv3plus_mobilenet --enable_vis --vis_port 28333 --gpu_id 0 --year 2012_aug --crop_val --lr 0.01 --crop_size 513 --batch_size 16 --output_stride 16 --ckpt checkpoints/best_deeplabv3plus_mobilenet_voc_os16.pth --test_only --save_val_results
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## Cityscapes
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### 1. Download cityscapes and extract it to 'datasets/data/cityscapes'
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```
+/datasets
+    /data
+        /cityscapes
+            /gtFine
+            /leftImg8bit
+```
 
-## License
-For open source projects, say how it is licensed.
+### 2. Train your model on Cityscapes
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+python main.py --model deeplabv3plus_mobilenet --dataset cityscapes --enable_vis --vis_port 28333 --gpu_id 0  --lr 0.1  --crop_size 768 --batch_size 16 --output_stride 16 --data_root ./datasets/data/cityscapes 
+```
+
+## Reference
+
+[1] [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587)
+
+[2] [Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1802.02611)
