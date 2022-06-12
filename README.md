@@ -1,7 +1,15 @@
 
 # DeepLabv3-QAT
 
-## 1. Requirements
+## 1. prepare env
+
+### 1.1 prepare docker container 
+
+```bash
+docker run -it -v "$(pwd)":/workspace/deeplabv3 --name zhaoyijia_deeplabv3_3  --shm-size=128g --gpus device=3 --net=host nvcr.io/nvidia/pytorch:22.03-py3 /bin/bash
+```
+
+### 1.2 Requirements
 
 ```bash
 pip install -r requirements.txt
@@ -49,18 +57,18 @@ Extract trainaug labels (SegmentationClassAug) to the VOC2012 directory.
         ...
 ```
 
-### 3 QAT training
+### 3. QAT training
 
 ```bash
  python main_qat.py --gpu_id 0 --year 2012_aug --lr 0.01 --crop_size 513 --batch_size 4
 ```
 
-### 4 build trt engine
+### 4. build trt engine
 
 ```bash
  python onnx2trt-qat.py -m {onnx model in step3} -d int8 --dynamic-shape
 ```
 
-### 5 evaluate
+### 5. evaluate
 
 https://github.com/shiyongming/Segmentation-models-benchmark
