@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import torchvision
 
 from copy import deepcopy
+import onnxoptimizer
 
 from pytorch_quantization import nn as quant_nn
 from pytorch_quantization import calib
@@ -52,17 +53,17 @@ def get_argparser():
     parser.add_argument("--accu_tolerance", type=float, default=3.0,
                         help="accu_tolerance (default: 0.01)")
 
-    parser.add_argument("--ckpt_path", type=str, default='sensity_ckpt',
-                        help="ckpt_path (default: sensity_ckpt)")
+    parser.add_argument("--pretrain_path", type=str, default=None,
+                        help="pretrain_path (default: no qat model)")
 
     parser.add_argument("--lr_policy", type=str, default='poly', choices=['poly', 'step'],
                         help="learning rate scheduler policy")
     parser.add_argument("--step_size", type=int, default=10000)
     parser.add_argument("--crop_val", action='store_true', default=False,
                         help='crop validation (default: False)')
-    parser.add_argument("--batch_size", type=int, default=16,
-                        help='batch size (default: 16)')
-    parser.add_argument("--val_batch_size", type=int, default=4,
+    parser.add_argument("--batch_size", type=int, default=4,
+                        help='batch size (default: 4)')
+    parser.add_argument("--val_batch_size", type=int, default=1,
                         help='batch size for validation (default: 4)')
     parser.add_argument("--crop_size", type=int, default=513)
 
@@ -80,8 +81,8 @@ def get_argparser():
                         help="random seed (default: 1)")
     parser.add_argument("--print_interval", type=int, default=10,
                         help="print interval of loss (default: 10)")
-    parser.add_argument("--val_interval", type=int, default=500,
-                        help="epoch interval for eval (default: 500)")
+    parser.add_argument("--val_interval", type=int, default=100,
+                        help="epoch interval for eval (default: 100)")
     parser.add_argument("--download", action='store_true', default=False,
                         help="download datasets")
 
@@ -89,15 +90,6 @@ def get_argparser():
     parser.add_argument("--year", type=str, default='2012',
                         choices=['2012_aug', '2012', '2011', '2009', '2008', '2007'], help='year of VOC')
 
-    # Visdom options
-    parser.add_argument("--enable_vis", action='store_true', default=False,
-                        help="use visdom for visualization")
-    parser.add_argument("--vis_port", type=str, default='13570',
-                        help='port for visdom')
-    parser.add_argument("--vis_env", type=str, default='main',
-                        help='env for visdom')
-    parser.add_argument("--vis_num_samples", type=int, default=8,
-                        help='number of samples for visualization (default: 8)')
     return parser
 
 
@@ -348,7 +340,8 @@ def main():
     print("Dataset: %s, Train set: %d, Val set: %d, Cal set: %d" %
           (opts.dataset, len(train_dst), len(val_dst), len(calib_dst)))
 
-    quant_desc_input = QuantDescriptor(calib_method="histogram")
+    # quant_desc_input = QuantDescriptor(calib_method="histogram")
+    quant_desc_input = QuantDescriptor()
     quant_nn.QuantConv2d.set_default_quant_desc_input(quant_desc_input)
     quant_nn.QuantMaxPool2d.set_default_quant_desc_input(quant_desc_input)
     quant_nn.QuantLinear.set_default_quant_desc_input(quant_desc_input)
@@ -358,16 +351,17 @@ def main():
 
     quant_modules.initialize()
     model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True)
-    model.load_state_dict(torch.load('./checkpoints/latest_deeplabv3_voc_os.pth')['model_state'])
+    if opts.pretrain_path:
+        model.load_state_dict(torch.load(opts.pretrain_path)['model_state'])
     quant_modules.deactivate()
 
     model.eval()
     model.cuda()
-
+    
     num_calib_batch = 10
     with torch.no_grad():
         collect_stats(model, calib_loader, num_calib_batch, device)
-
+    
     # for percentile in [99.9, 99.99, 99.999, 99.9999]:
     #     print(F"{percentile} percentile calibration")
     #     compute_amax(model, method="percentile")
@@ -389,10 +383,16 @@ def main():
     #     ckpt = {'model': deepcopy(model)}
     #     torch.save(ckpt, calib_output)
 
+    utils.mkdir('checkpoints_qat')
+    utils.mkdir('qat_cali_finetune')
+    utils.mkdir('onnx_models')
+    
     compute_amax(model, method="entropy")
     ckpt = {'model': deepcopy(model)}
-    torch.save(ckpt, "qat_cali_finetune/entropy_.pth")
-    # torch.load("qat_cali_finetune/entropy_.pth")
+    torch.save(ckpt, "qat_cali_finetune/qat_cali_model.pth")
+
+    # model = torch.load("qat_cali_finetune/entropy.pth")['model']
+    # import pdb;pdb.set_trace()
 
     utils.set_bn_momentum(model.backbone, momentum=0.01)
 
@@ -430,7 +430,6 @@ def main():
         }, path)
         print("Model saved as %s" % path)
 
-    utils.mkdir('checkpoints_qat')
     # Restore
     best_score = 0.0
     cur_itrs = 0
@@ -454,27 +453,23 @@ def main():
         # model = nn.DataParallel(model)
         model.to(device)
 
-    # ==========   Train Loop   ==========#
-    vis_sample_id = np.random.randint(0, len(val_loader), opts.vis_num_samples,
-                                      np.int32) if opts.enable_vis else None  # sample idxs for visualization
-    denorm = utils.Denormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # denormalization for ori images
-
     if opts.test_only:
         model.eval()
         print("begin validate")
         val_score, ret_samples = validate(
-            opts=opts, model=model, loader=val_loader, device=device, metrics=metrics, ret_samples_ids=vis_sample_id)
+            opts=opts, model=model, loader=val_loader, device=device, metrics=metrics)
         print(metrics.to_str(val_score))
         return
     
-    model.eval()
-    print("begin validate after skip")
-    val_score, ret_samples = validate(
-        opts=opts, model=model, loader=val_loader, device=device, metrics=metrics, ret_samples_ids=vis_sample_id)
-    print(metrics.to_str(val_score))
-
     # build_sensitivity_profile(model, opts, val_loader, device)
     # skip_sensitive_layers(model, opts, val_loader, device)
+
+    # model.eval()
+    # print("begin validate after skip")
+    # val_score, ret_samples = validate(
+    #     opts=opts, model=model, loader=val_loader, device=device, metrics=metrics)
+    # print(metrics.to_str(val_score))
+
     interval_loss = 0
  
  
@@ -515,8 +510,7 @@ def main():
                 print("validation...")
                 model.eval()
                 val_score, ret_samples = validate(
-                    opts=opts, model=model, loader=val_loader, device=device, metrics=metrics,
-                    ret_samples_ids=vis_sample_id)
+                    opts=opts, model=model, loader=val_loader, device=device, metrics=metrics)
                 print(metrics.to_str(val_score))
                 if val_score['Mean IoU'] > best_score:  # save best model
                     best_score = val_score['Mean IoU']
@@ -544,6 +538,12 @@ def main():
                                      output_names=output_names,
                                      dynamic_axes=dynamic_axes,
                                      do_constant_folding=True)
+                    #eliminate_identity
+                    passes = ['eliminate_identity']                 
+                    saved_onnx_model = onnx.load(onnx_model_name)
+                    opted_saved_onnx_model = onnxoptimizer.optimize(saved_onnx_model, passes)
+                    onnx.save(opted_saved_onnx_model, onnx_model_name)
+
 
                     quant_nn.TensorQuantizer.use_fb_fake_quant = False
                 model.train()
@@ -556,4 +556,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-#python main_qat.py --gpu_id 0 --year 2012_aug --lr 0.01 --crop_size 513 --batch_size 4
+#python main_qat.py --gpu_id 0 --year 2012_aug --lr 0.01 --crop_size 513 --batch_size 8

@@ -120,7 +120,7 @@ def build_engine_from_onnx(model_name,
         if dynamic_shape:
             # You can adjust the shape setting according to the actual situation
             profile = builder.create_optimization_profile()
-            profile.set_shape("input0", (1, 3, 256, 256), (1, 3, 512, 512), (1, 3, 640, 640))
+            profile.set_shape("input0", (1, 3, 128, 128), (1, 3, 384, 512), (1, 3, 512, 640))
             config.add_optimization_profile(profile)
 
         engine = builder.build_engine(network, config)
@@ -156,19 +156,9 @@ def main():
     parser.add_argument(
         '--qat', action='store_true',
         help='whether the onnx model is qat; if it is, the int8 calibrator is not needed')
-    # If enable int8(not post-QAT model), then set the followingcalib_cache
-    parser.add_argument('--img-size', type=int,
-                        default=640, help='image size of model input')
-    parser.add_argument('--batch-size', type=int,
-                        default=128, help='batch size for training: default 64')
-    parser.add_argument('--num-calib-batch', default=6, type=int,
-                        help='Number of batches for calibration')
-    parser.add_argument('--calib-img-dir', default='../coco/images/train2017', type=str,
-                        help='Number of batches for calibration')
-    parser.add_argument('--calib-cache', default='./trt/yolov5s_calibration.cache', type=str,
-                        help='Path of calibration cache')
-    parser.add_argument('--calib-method', default='minmax', type=str,
-                        help='Calibration method')
+    parser.add_argument(
+        '-o', '--output_name', type=str, default= 'qat_res',
+        help='output name')
 
     args = parser.parse_args()
 
@@ -179,7 +169,7 @@ def main():
     if engine is None:
         raise SystemExit('ERROR: failed to build the TensorRT engine!')
 
-    engine_path = 'qat_res.trt'
+    engine_path = args.output_name + '.trt'
     with open(engine_path, 'wb') as f:
         f.write(engine.serialize())
     print('Serialized the TensorRT engine to file: %s' % engine_path)
