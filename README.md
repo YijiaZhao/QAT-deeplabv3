@@ -107,7 +107,7 @@ Metrics of PTQ and QAT:
 QPS:
 *Test results of TRT-FP16 is not stable, it is the average results that I fill in the table.
 | Batch size | Device | TRT-FP16 | PTQ-INT8 | QAT(further_opt) |
-| :-----| :-----| ----: | ----: | ----: | :----: |
+| :-----| ----: | ----: | ----: | :----: |
 | 1  | A100 | 310.812 | 364.246 | 364.883 |
 | 2  | A100 | 297.864 | 383.624 | 382.978 |
 | 4  | A100 | 307.828 | 388.310 | 387.781 |
