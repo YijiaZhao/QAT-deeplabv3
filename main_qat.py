@@ -85,6 +85,9 @@ def get_argparser():
                         help="epoch interval for eval (default: 100)")
     parser.add_argument("--download", action='store_true', default=False,
                         help="download datasets")
+    parser.add_argument("--further_opt", action='store_true', default=False,
+                        help="further opt")
+
 
     # PASCAL VOC Options
     parser.add_argument("--year", type=str, default='2012',
@@ -340,20 +343,24 @@ def main():
     print("Dataset: %s, Train set: %d, Val set: %d, Cal set: %d" %
           (opts.dataset, len(train_dst), len(val_dst), len(calib_dst)))
 
-    # quant_desc_input = QuantDescriptor(calib_method="histogram")
-    quant_desc_input = QuantDescriptor()
+    quant_desc_input = QuantDescriptor(calib_method="histogram")
+    # quant_desc_input = QuantDescriptor()
     quant_nn.QuantConv2d.set_default_quant_desc_input(quant_desc_input)
-    quant_nn.QuantMaxPool2d.set_default_quant_desc_input(quant_desc_input)
+    # quant_nn.QuantMaxPool2d.set_default_quant_desc_input(quant_desc_input)
     quant_nn.QuantLinear.set_default_quant_desc_input(quant_desc_input)
 
-    quant_nn.QuantConv2d.set_default_quant_desc_weight(quant_desc_input)
-    quant_nn.QuantLinear.set_default_quant_desc_weight(quant_desc_input)
+    # quant_nn.QuantConv2d.set_default_quant_desc_weight(quant_desc_input)
+    # quant_nn.QuantLinear.set_default_quant_desc_weight(quant_desc_input)
 
     quant_modules.initialize()
     model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True)
+    quant_modules.deactivate()
+    
+    if opts.further_opt:
+        model = torchvision.models.segmentation.deeplabv3_resnet101(pretrained=True, quantize=True)
+
     if opts.pretrain_path:
         model.load_state_dict(torch.load(opts.pretrain_path)['model_state'])
-    quant_modules.deactivate()
 
     model.eval()
     model.cuda()
@@ -362,37 +369,38 @@ def main():
     with torch.no_grad():
         collect_stats(model, calib_loader, num_calib_batch, device)
     
-    # for percentile in [99.9, 99.99, 99.999, 99.9999]:
-    #     print(F"{percentile} percentile calibration")
-    #     compute_amax(model, method="percentile")
-    #     calib_output = os.path.join(
-    #         "qat_cali_finetune",
-    #         F"{'deeplabv3'}-percentile-{percentile}-{num_calib_batch*calib_loader.batch_size}.pth")
-
-    #     ckpt = {'model': deepcopy(model)}
-    #     torch.save(ckpt, calib_output)
-
-    # for method in ["mse", "entropy"]:
-    #     print(F"{method} calibration")
-    #     compute_amax(model, method=method)
-
-    #     calib_output = os.path.join(
-    #         "qat_cali_finetune",
-    #         F"{'deeplabv3'}-{method}-{num_calib_batch*calib_loader.batch_size}.pth")
-
-    #     ckpt = {'model': deepcopy(model)}
-    #     torch.save(ckpt, calib_output)
-
     utils.mkdir('checkpoints_qat')
     utils.mkdir('qat_cali_finetune')
     utils.mkdir('onnx_models')
     
+    # you can find the best method by using following code
+    '''
+    for percentile in [99.9, 99.99, 99.999, 99.9999]:
+        print(F"{percentile} percentile calibration")
+        compute_amax(model, method="percentile")
+        calib_output = os.path.join(
+            "qat_cali_finetune",
+            F"{'deeplabv3'}-percentile-{percentile}-{num_calib_batch*calib_loader.batch_size}.pth")
+
+        ckpt = {'model': deepcopy(model)}
+        torch.save(ckpt, calib_output)
+
+    for method in ["mse", "entropy"]:
+        print(F"{method} calibration")
+        compute_amax(model, method=method)
+
+        calib_output = os.path.join(
+            "qat_cali_finetune",
+            F"{'deeplabv3'}-{method}-{num_calib_batch*calib_loader.batch_size}.pth")
+
+        ckpt = {'model': deepcopy(model)}
+        torch.save(ckpt, calib_output)
+    model = torch.load("qat_cali_finetune/entropy.pth")['model']
+    '''
+
     compute_amax(model, method="entropy")
     ckpt = {'model': deepcopy(model)}
     torch.save(ckpt, "qat_cali_finetune/qat_cali_model.pth")
-
-    # model = torch.load("qat_cali_finetune/entropy.pth")['model']
-    # import pdb;pdb.set_trace()
 
     utils.set_bn_momentum(model.backbone, momentum=0.01)
 
@@ -556,4 +564,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-#python main_qat.py --gpu_id 0 --year 2012_aug --lr 0.01 --crop_size 513 --batch_size 8
+#python main_qat.py --gpu_id 0 --year 2012_aug --lr 0.01 --crop_size 513
