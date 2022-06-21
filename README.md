@@ -105,9 +105,16 @@ Metrics of PTQ and QAT:
 
 
 QPS:
-| Batch size | Device | TRT-FP32 | TRT-FP16 | PTQ-INT8 | QAT(further_opt) |
+*Test results of TRT-FP16 is not stable, it is the average results that I fill in the table.
+| Batch size | Device | TRT-FP16 | PTQ-INT8 | QAT(further_opt) |
 | :-----| :-----| ----: | ----: | ----: | :----: |
-| 1 | A100 | 161.69 | 315 | 364.246 | 364.883 |
+| 1  | A100 | 310.812 | 364.246 | 364.883 |
+| 2  | A100 | 297.864 | 383.624 | 382.978 |
+| 4  | A100 | 307.828 | 388.310 | 387.781 |
+| 8  | A100 | 304.260 | 388.608 | 388.266 |
+| 16 | A100 | 282.661 | 373.197 | 385.939 |
+| 32 | A100 | 229.290 | 360.739 | 365.773 |
+
 
 ## *7. PTQ
 If you want to do ptq experiment of deeplabv3, refer to https://github.com/shiyongming/Segmentation-models-benchmark.
