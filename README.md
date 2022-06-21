@@ -1,9 +1,9 @@
 
 # DeepLabv3-QAT
 
-## 1. prepare env
+## 1. Prepare env
 
-### 1.1 prepare docker container 
+### 1.1 Prepare docker container 
 
 ```bash
 docker run -it -v "$(pwd)":/workspace/deeplabv3 --name zhaoyijia_deeplabv3_3  --shm-size=128g --gpus=all --net=host nvcr.io/nvidia/pytorch:22.03-py3 /bin/bash
@@ -74,29 +74,29 @@ Please refer to [TensorRT OSS/tool/pytorch-quantization/Further optimization](ht
  python main_qat_opt.py --gpu_id 0 --year 2012_aug --lr 0.0015 --crop_size 513 --further_opt
 ```
 
-## 4. build trt engine
+## 4. Build trt engine
 
 If you don't use Ampere or latter GPU, pay attention to https://github.com/NVIDIA/TensorRT/issues/1768
 ```bash
  python onnx2trt-qat.py -m {onnx model in step3} -d int8 --dynamic-shape
 ```
 
-## 5. evaluate
+## 5. Evaluate
 
-### 5.1 metric:
+### 5.1 Metrics:
 ```bash
 python trt_infer.py -t {pytorch model}
 python trt_infer.py -e {trt model}
 ```
-### 5.2 qps:
+### 5.2 QPS:
 ```bash
  trtexec --loadEngine={trt path} --minShapes=input0:1x3x128x128 --optShapes=input0:1x3x384x512 --maxShapes=input0:1x3x640x640
 ```
 
-## 6. results:
+## 6. Results:
 
 Metrics of PTQ and QAT:
-| Metrics | pytorch training result | PTQ result | pytorch finetune result | QAT result(further_opt) |
+| Metrics | pytorch training result | PTQ result | pytorch QAT finetune result | QAT result |
 | :-----| ----: | ----: | ----: | :----: |
 | Overall Acc | 0.953910 | 0.952774 | 0.953986 | 0.953830 |
 | Mean Acc cls | 0.899860 | 0.900350 | 0.89349 | 0.893213 |
@@ -105,7 +105,7 @@ Metrics of PTQ and QAT:
 
 
 QPS:
-| Batch size | Device | TRT-FP32 | TRT-FP16 | PTQ-INT8 | QAT |
+| Batch size | Device | TRT-FP32 | TRT-FP16 | PTQ-INT8 | QAT(further_opt) |
 | :-----| :-----| ----: | ----: | ----: | :----: |
 | 1 | A100 | 161.69 | 315 | 364.246 | 364.883 |
 
