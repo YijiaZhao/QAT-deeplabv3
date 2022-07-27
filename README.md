@@ -90,7 +90,8 @@ python trt_infer.py -e {trt model}
 ```
 ### 5.2 QPS:
 ```bash
- trtexec --loadEngine={trt path} --minShapes=input0:1x3x128x128 --optShapes=input0:1x3x384x512 --maxShapes=input0:1x3x640x640
+ trtexec --loadEngine={trt path} --shapes=input0:1x3x384x512
+ (trtexec --loadEngine={trt path} --minShapes=input0:1x3x128x128 --optShapes=input0:1x3x384x512 --maxShapes=input0:1x3x640x640)
 ```
 
 ## 6. Results:

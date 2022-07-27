@@ -111,7 +111,6 @@ def build_engine_from_onnx(model_name,
         if t_dtype == trt.DataType.INT8:
             print('trt.DataType.INT8')
             config.flags |= 1 << int(trt.BuilderFlag.INT8)
-            config.flags |= 1 << int(trt.BuilderFlag.FP16)
 
             if int8_calib:
                 config.int8_calibrator = Calibrator(calib_loader, calib_cache)
