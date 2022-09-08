@@ -105,7 +105,7 @@ Metrics of PTQ and QAT:
 | FreqW Acc | 0.917793 | 0.915693 | 0.9171307 | 0.916915 |
 
 
-QPS:
+Latency throughput(One stream):
 *Test results of TRT-FP16 is not stable, it is the average results that I fill in the table.
 | Batch size | Device | TRT-FP16 | PTQ-INT8 | QAT(further_opt) |
 | :-----| ----: | ----: | ----: | :----: |
